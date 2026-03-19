@@ -21,6 +21,7 @@ typedef struct IVSHMEM_MMAP_CONFIG
 /*
     This structure is for use with the IOCTL_IVSHMEM_REQUEST_MMAP IOCTL
 */
+#pragma pack(push, 1)
 typedef struct IVSHMEM_MMAP
 {
     IVSHMEM_PEERID peerID; // our peer id
@@ -28,6 +29,7 @@ typedef struct IVSHMEM_MMAP
     PVOID ptr;             // pointer to the memory region
     UINT16 vectors;        // the number of vectors available
 } IVSHMEM_MMAP, *PIVSHMEM_MMAP;
+
 
 /*
     This structure is for use with the IOCTL_IVSHMEM_RING_DOORBELL IOCTL
@@ -40,23 +42,32 @@ typedef struct IVSHMEM_RING
 
 #define MAX_PRP_ENTRIES 512
 
-typedef struct _MAP_REQUEST {
+typedef struct IVSHMEM_MAP_REQUEST {
     ULONG64 PhysAddrList[MAX_PRP_ENTRIES]; 
     ULONG PageCount;                       
-} MAP_REQUEST, *PMAP_REQUEST;
+} IVSHMEM_MAP_REQUEST, *PIVSHMEM_MAP_REQUEST;
 
 
-typedef struct _MAP_RESPONSE {
+typedef struct IVSHMEM_PRP_MAP_RESPONSE {
     PVOID UserVa;      
-    PVOID MdlContext;  
-} MAP_RESPONSE, *PMAP_RESPONSE;
+    // PVOID MdlContext;  
+} IVSHMEM_PRP_MAP_RESPONSE, *PIVSHMEM_PRP_MAP_RESPONSE;
 
+typedef struct IVSHMEM_PRP_MAP_RESPONSE32 {
+    UINT32 UserVa;      
+    // PVOID MdlContext;  
+} IVSHMEM_PRP_MAP_RESPONSE32, *PIVSHMEM_PRP_MAP_RESPONSE32;
 
-typedef struct _UNMAP_REQUEST {
+typedef struct IVSHMEM_PRP_UNMAP_REQUEST {
     PVOID UserVa;
-    PVOID MdlContext;
-} UNMAP_REQUEST, *PUNMAP_REQUEST;
+    // PVOID MdlContext;
+} IVSHMEM_PRP_UNMAP_REQUEST, *PIVSHMEM_PRP_UNMAP_REQUEST;
 
+typedef struct IVSHMEM_PRP_UNMAP_REQUEST32 {
+    UINT32 UserVa;
+    // PVOID MdlContext;
+} IVSHMEM_PRP_UNMAP_REQUEST32, *PIVSHMEM_PRP_UNMAP_REQUEST32;
+#pragma pack(pop)
 
 
 /*

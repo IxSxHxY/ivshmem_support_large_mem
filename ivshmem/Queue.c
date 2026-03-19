@@ -83,7 +83,7 @@ VOID IVSHMEMEvtIoDeviceControl(_In_ WDFQUEUE Queue,
     WDFDEVICE hDevice = WdfIoQueueGetDevice(Queue);
     PDEVICE_CONTEXT deviceContext = DeviceGetContext(hDevice);
     size_t bytesReturned = 0;
-
+    DEBUG_PRINT("Inside IVSHMEMEvtIoDeviceControl");
     // revision 0 devices have to wait until the shared memory has been provided to the vm
     if (deviceContext->devRegisters->ivProvision < 0)
     {
@@ -428,7 +428,9 @@ static NTSTATUS ioctl_request_mmap(const PDEVICE_CONTEXT DeviceContext,
             SIZE_T length = DeviceContext->shmemAddr.NumberOfBytes;
             PVOID base_va = NULL;
             NTSTATUS status;
+            DEBUG_PRINT("IVSHMEM Debug: pa = 0x%lx, length = %lu", pa.QuadPart, (UINT64)length);
 
+            DEBUG_PRINT("IVSHMEM Debug: DeviceContext = %p, BaseVA = %p", DeviceContext, base_va);
             // --- STEP 1: RESERVE ---
             status = ZwAllocateVirtualMemory(ZwCurrentProcess(), &base_va, 0, &length, MEM_RESERVE, PAGE_NOACCESS);
 
@@ -523,195 +525,7 @@ static NTSTATUS ioctl_request_mmap(const PDEVICE_CONTEXT DeviceContext,
             DeviceContext->shmemMDL = headMdl; //
             DeviceContext->shmemMap = base_va; //
             DeviceContext->mdlCount = i;
-
-            // --- STEP 4: MAP EACH MDL INTO THE RESERVED RANGE ---
-            // PVOID currentTargetVA = base_va;
-            // PMDL currMdl = headMdl;
-            // ULONG i = 0;
-            // offset = 0;
-
-            // while (currMdl)
-            // {
-            //     SIZE_T chunkLen = min(CHUNK_SIZE, length - offset);
-
-            //     PVOID mappedChunk = MmMapLockedPagesSpecifyCache(currMdl,
-            //                                                      UserMode,
-            //                                                      cacheType,
-            //                                                      currentTargetVA, //
-            //                                                      FALSE,           //
-            //                                                      NormalPagePriority | MdlMappingNoExecute);
-
-            //     if (mappedChunk != currentTargetVA)
-            //     {
-            //         DEBUG_PRINT("Mapping failed or not contiguous at chunk %u", i);
-            //         // goto ErrorCleanup;
-            //         return 0;
-            //     }
-
-            //     if (i < 32)
-            //     {
-            //         DeviceContext->mdlArray[i] = currMdl;
-            //     }
-
-            //     DEBUG_PRINT("Chunk %u mapped at: %p", i, mappedChunk);
-
-            //     currentTargetVA = (PVOID)((SIZE_T)currentTargetVA + chunkLen);
-            //     offset += chunkLen;
-            //     currMdl = currMdl->Next;
-            //     i++;
-            // }
-
-            // DeviceContext->shmemMDL = headMdl;
-            // DeviceContext->shmemMap = base_va;
-            // DeviceContext->mdlCount = i;
-
-            // PVOID base_va = NULL;
-            // PHYSICAL_ADDRESS pa = DeviceContext->shmemAddr.PhysicalAddress;
-            // SIZE_T length = DeviceContext->shmemAddr.NumberOfBytes;
-            // NTSTATUS status;
-            // // ->shmemAddr.PhysicalAddress
-            // // DEBUG_PRINT("NtAllocateVirtualMemory!!!1");
-            // status = ZwAllocateVirtualMemory(ZwCurrentProcess(),
-            //                                           &base_va,
-            //                                           0,
-            //                                           &length,
-            //                                           MEM_RESERVE,
-            //                                           PAGE_NOACCESS);
-            // DEBUG_PRINT("NtAllocateVirtualMemory!!! status = %08x", status);
-            // if ((ULONG_PTR)base_va > 0x00007FFFFFFFFFFF)
-            // {
-            //     DEBUG_PRINT("ERROR: Got kernel VA instead of user VA: %p", base_va);
-            //     SIZE_T regionSize = 0;
-            //     ZwFreeVirtualMemory(ZwCurrentProcess(), &base_va, &regionSize, MEM_RELEASE);
-            //     return 0;
-            // }
-            // else
-            // {
-            //     DEBUG_PRINT("Got User VA instead: %p", base_va);
-            // }
-
-            // SIZE_T CHUNK_SIZE = 1ULL * 1024 * 1024 * 1024; // 1GB
-            // SIZE_T offset = 0;
-            // PMDL headMdl = NULL;
-            // PMDL prevMdl = NULL;
-            // ULONG chunkIndex = 0;
-
-            // while (offset < length)
-            // {
-            //     SIZE_T chunkLen = min(CHUNK_SIZE, length - offset);
-            //     PHYSICAL_ADDRESS chunkPA;
-            //     chunkPA.QuadPart = pa.QuadPart + offset;
-
-            //     MM_PHYSICAL_ADDRESS_LIST addrSpace;
-            //     addrSpace.PhysicalAddress = chunkPA;
-            //     addrSpace.NumberOfBytes = (ULONG)chunkLen;
-
-            //     PMDL mdl;
-            //     status = MmAllocateMdlForIoSpace(&addrSpace, 1, &mdl);
-
-            //     if (!NT_SUCCESS(status))
-            //     {
-            //         DEBUG_PRINT("MmAllocateMdlForIoSpace failed for chunk %u: 0x%x", chunkIndex, status);
-            //         // goto Cleanup;
-            //         return 0;
-            //     }
-
-            //     DEBUG_PRINT("Created MDL %u: PA=%llx, size=%llx", chunkIndex, chunkPA.QuadPart, chunkLen);
-
-            //     if (headMdl == NULL)
-            //     {
-            //         headMdl = mdl;
-            //     }
-            //     else
-            //     {
-            //         prevMdl->Next = mdl;
-            //     }
-
-            //     prevMdl = mdl;
-            //     offset += chunkLen;
-            //     chunkIndex++;
-            // }
-
-            // if (prevMdl)
-            // {
-            //     prevMdl->Next = NULL;
-            // }
-
-            // DEBUG_PRINT("Created MDL chain with %u MDLs", chunkIndex);
-
-            // // PVOID commitVA = base_va;
-            // // SIZE_T commitSize = length;
-
-            // // status = ZwAllocateVirtualMemory(ZwCurrentProcess(), &commitVA, 0, &commitSize, MEM_COMMIT,
-            // // PAGE_READWRITE); if (!NT_SUCCESS(status) || commitVA != base_va)
-            // // {
-            // //     DEBUG_PRINT("Failed to commit VA: 0x%x", status);
-            // //     return 0;
-            // // }
-            // SIZE_T regionSize = 0;
-
-            // PVOID mappedVA = NULL;
-            // PVOID nextTargetVA = NULL;
-            // PVOID temp1 = NULL;
-            // SIZE_T chunkLen = min(CHUNK_SIZE, length - offset);
-            // offset = 0;
-            // __try
-            // {
-            //     status = ZwFreeVirtualMemory(ZwCurrentProcess(), &base_va, &regionSize, MEM_RELEASE);
-            //     DEBUG_PRINT("ZwFreeVirtualMemory status = 0x%08x", status);
-            //     temp1 = MmMapLockedPagesSpecifyCache(currMdl,
-            //                                                   UserMode,
-            //                                                   cacheType,
-            //                                                   base_va,
-            //                                                   FALSE,
-            //                                                   NormalPagePriority | MdlMappingNoExecute);
-            //     offset += chunkLen;
-            //     PMDL currMdl = headMdl->Next;
-            //     while (currMdl)
-            //     {
-
-            //         nextTargetVA = (PVOID)((SIZE_T)temp1 + chunkLen);
-            //         PVOID temp2 = MmMapLockedPagesSpecifyCache(currMdl,
-            //                                                   UserMode,
-            //                                                   cacheType,
-            //                                                   nextTargetVA,
-            //                                                   FALSE,
-            //                                                   NormalPagePriority | MdlMappingNoExecute);
-            //         nextTargetVA = (PVOID)((SIZE_T)temp + chunkLen);
-            //         DeviceContext->mdlArray[chunkIndex] = currMdl;
-            //         if (!mappedVA)
-            //         {
-            //             mappedVA = temp;
-            //         }
-            //         currMdl = currMdl->Next;
-            //         offset += chunkLen;
-            //         if (temp)
-            //         {
-            //             DEBUG_PRINT("MDL is mapped! va = %p", temp2);
-            //         }
-            //         else
-            //         {
-            //             DEBUG_PRINT("MDL is not mapped!");
-            //         }
-            //     }
-            //     DeviceContext->shmemMDL = headMdl;
-            //     DeviceContext->shmemMap = mappedVA;
         }
-
-        // __except (EXCEPTION_EXECUTE_HANDLER)
-        // {
-        //     DEBUG_PRINT("Exception mapping chained MDL");
-        //     status = GetExceptionCode();
-        //     return STATUS_DRIVER_INTERNAL_ERROR;
-        //     // goto Cleanup;
-        // }
-
-        // if (!mappedVA || mappedVA != userVA_base)
-        // {
-        //     DEBUG_PRINT("Mapping failed: expected=%p, got=%p", userVA_base, mappedVA);
-        //     status = STATUS_CONFLICTING_ADDRESSES;
-        //     goto Cleanup;
-        // }
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
     {
@@ -933,8 +747,8 @@ static NTSTATUS ioctl_map_prp_list(const PDEVICE_CONTEXT DeviceContext,
                                    size_t *BytesReturned)
 {
     NTSTATUS status;
-    PMAP_REQUEST pReq;
-    PMAP_RESPONSE pRes;
+    PIVSHMEM_MAP_REQUEST pReq;
+    PIVSHMEM_PRP_MAP_RESPONSE pRes;
     PMDL pMdl = NULL;
     PVOID userVa = NULL;
     MM_PHYSICAL_ADDRESS_LIST paList[MAX_PRP_ENTRIES];
@@ -942,13 +756,22 @@ static NTSTATUS ioctl_map_prp_list(const PDEVICE_CONTEXT DeviceContext,
     *BytesReturned = 0;
     UNREFERENCED_PARAMETER(InputBufferLength);
     UNREFERENCED_PARAMETER(OutputBufferLength);
-    status = WdfRequestRetrieveInputBuffer(Request, sizeof(MAP_REQUEST), (PVOID *)&pReq, NULL);
+    size_t InputSize = 0, OutputSize = 0;
+    status = WdfRequestRetrieveInputBuffer(Request, sizeof(IVSHMEM_MAP_REQUEST), (PVOID *)&pReq, &InputSize);
+    DEBUG_PRINT("[ioctl_map_prp_list] Input Original = %ld | Retrieved = %ld", sizeof(IVSHMEM_MAP_REQUEST), InputSize);
     if (!NT_SUCCESS(status))
     {
         return status;
     }
-
-    status = WdfRequestRetrieveOutputBuffer(Request, sizeof(MAP_RESPONSE), (PVOID *)&pRes, NULL);
+#ifdef _WIN64
+    PIRP irp = WdfRequestWdmGetIrp(Request);
+    const BOOLEAN is32Bit = IoIs32bitProcess(irp);
+    const size_t outputLen = is32Bit ? sizeof(IVSHMEM_PRP_MAP_RESPONSE32) : sizeof(IVSHMEM_PRP_MAP_RESPONSE);
+#else
+    const size_t outputLen = sizeof(IVSHMEM_PRP_MAP_RESPONSE);
+#endif
+    status = WdfRequestRetrieveOutputBuffer(Request, outputLen, (PVOID *)&pRes, &OutputSize);
+    DEBUG_PRINT("[ioctl_map_prp_list] Output Original = %ld | Retrieved = %ld", outputLen, OutputSize);
     if (!NT_SUCCESS(status))
     {
         return status;
@@ -958,13 +781,13 @@ static NTSTATUS ioctl_map_prp_list(const PDEVICE_CONTEXT DeviceContext,
     {
         return STATUS_INVALID_PARAMETER;
     }
-    DEBUG_PRINT("Page Count = %lld", pReq->PageCount);
+    DEBUG_PRINT("[ioctl_map_prp_list] Page Count = %lld", pReq->PageCount);
     for (ULONG i = 0; i < pReq->PageCount; i++)
     {
         // paList[i].PhysicalAddress.QuadPart = pReq->PhysAddrList[i];
         paList[i].PhysicalAddress.QuadPart = DeviceContext->shmemAddr.PhysicalAddress.QuadPart + pReq->PhysAddrList[i];
         paList[i].NumberOfBytes = 4096;
-        DEBUG_PRINT("Addr = 0x%llx", paList[i].PhysicalAddress.QuadPart);
+        DEBUG_PRINT("[ioctl_map_prp_list] Addr = 0x%llx", paList[i].PhysicalAddress.QuadPart);
     }
 
     status = MmAllocateMdlForIoSpace(paList, pReq->PageCount, &pMdl);
@@ -988,11 +811,21 @@ static NTSTATUS ioctl_map_prp_list(const PDEVICE_CONTEXT DeviceContext,
             InsertTailList(&DeviceContext->PrpMapListHead, &pEntry->ListEntry);
             WdfWaitLockRelease(DeviceContext->PrpMapLock);
         }
-        DEBUG_PRINT("userVa = %p", userVa);
+        DEBUG_PRINT("[ioctl_map_prp_list] userVa = %p", userVa);
 
-        pRes->UserVa = userVa;
-        pRes->MdlContext = pMdl;
-        *BytesReturned = sizeof(MAP_RESPONSE);
+#ifdef _WIN64
+        if (is32Bit)
+        {
+            PIVSHMEM_PRP_MAP_RESPONSE32 pRes32 = (PIVSHMEM_PRP_MAP_RESPONSE32)pRes;
+            pRes32->UserVa = PtrToUint(userVa);
+        }
+        else
+#endif
+        {
+            pRes->UserVa = userVa;
+        }
+
+        *BytesReturned = outputLen;
         status = STATUS_SUCCESS;
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
@@ -1013,12 +846,21 @@ static NTSTATUS ioctl_unmap_prp_list(const PDEVICE_CONTEXT DeviceContext,
                                      size_t *BytesReturned)
 {
     NTSTATUS status = STATUS_NOT_FOUND;
-    PUNMAP_REQUEST pReq;
+    PIVSHMEM_PRP_UNMAP_REQUEST pReq;
     PLIST_ENTRY curr, head;
-
+    DEBUG_PRINT("Inside ioctl_unmap_prp_list!");
     *BytesReturned = 0;
     UNREFERENCED_PARAMETER(InputBufferLength);
-    status = WdfRequestRetrieveInputBuffer(Request, sizeof(UNMAP_REQUEST), (PVOID *)&pReq, NULL);
+#ifdef _WIN64
+    PIRP irp = WdfRequestWdmGetIrp(Request);
+    const BOOLEAN is32Bit = IoIs32bitProcess(irp);
+    const size_t inputLen = is32Bit ? sizeof(IVSHMEM_PRP_UNMAP_REQUEST32) : sizeof(IVSHMEM_PRP_UNMAP_REQUEST);
+#else
+    const size_t inputLen = sizeof(IVSHMEM_PRP_UNMAP_REQUEST);
+#endif
+    size_t InputSize = 0;
+    status = WdfRequestRetrieveInputBuffer(Request, inputLen, (PVOID *)&pReq, &InputSize);
+    DEBUG_PRINT("[ioctl_unmap_prp_list] Input Original = %ld | Retrieved = %ld", inputLen, InputSize);
     if (!NT_SUCCESS(status))
     {
         return status;
@@ -1032,8 +874,9 @@ static NTSTATUS ioctl_unmap_prp_list(const PDEVICE_CONTEXT DeviceContext,
     while (curr != head)
     {
         PPRP_MAP_ENTRY pEntry = CONTAINING_RECORD(curr, PRP_MAP_ENTRY, ListEntry);
-        if (pEntry->pMdl == pReq->MdlContext && pEntry->UserVa == pReq->UserVa)
+        if (pEntry->UserVa == pReq->UserVa)
         {
+            DEBUG_PRINT("[ioctl_unmap_prp_list] Removing UserVA=%p | MdlContext=%p", pEntry->UserVa, pEntry->pMdl);
             MmUnmapLockedPages(pEntry->UserVa, pEntry->pMdl);
             IoFreeMdl(pEntry->pMdl);
 
@@ -1044,7 +887,7 @@ static NTSTATUS ioctl_unmap_prp_list(const PDEVICE_CONTEXT DeviceContext,
         }
         curr = curr->Flink;
     }
-
+    DEBUG_PRINT("[ioctl_unmap_prp_list] PRP List unmapped successfully!");
     WdfWaitLockRelease(DeviceContext->PrpMapLock);
     return status;
 }
