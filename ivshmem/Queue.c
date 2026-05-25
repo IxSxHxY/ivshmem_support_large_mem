@@ -83,15 +83,15 @@ VOID IVSHMEMEvtIoDeviceControl(_In_ WDFQUEUE Queue,
     WDFDEVICE hDevice = WdfIoQueueGetDevice(Queue);
     PDEVICE_CONTEXT deviceContext = DeviceGetContext(hDevice);
     size_t bytesReturned = 0;
-    DEBUG_PRINT("Inside IVSHMEMEvtIoDeviceControl");
+    DEBUG_INFO("Inside IVSHMEMEvtIoDeviceControl");
     // revision 0 devices have to wait until the shared memory has been provided to the vm
     if (deviceContext->devRegisters->ivProvision < 0)
     {
-        DEBUG_PRINT("Device not ready yet, ivProvision = %d", deviceContext->devRegisters->ivProvision);
+        DEBUG_ERROR("Device not ready yet, ivProvision = %d", deviceContext->devRegisters->ivProvision);
         WdfRequestCompleteWithInformation(Request, STATUS_DEVICE_NOT_READY, 0);
         return;
     }
-    DEBUG_PRINT("IoControlCode = %x", IoControlCode);
+    DEBUG_INFO("IoControlCode = %x", IoControlCode);
     NTSTATUS status = STATUS_INVALID_DEVICE_REQUEST;
     switch (IoControlCode)
     {
@@ -227,7 +227,7 @@ VOID IVSHMEMEvtDeviceFileCleanup(_In_ WDFFILEOBJECT FileObject)
         return;
     }
 
-    DEBUG_PRINT("Cleaning up SHMEM mappings for FileObject %p", FileObject);
+    DEBUG_INFO("Cleaning up SHMEM mappings for FileObject %p", FileObject);
 
     for (ULONG i = 0; i < 32; i++)
     {
@@ -239,11 +239,11 @@ VOID IVSHMEMEvtDeviceFileCleanup(_In_ WDFFILEOBJECT FileObject)
             {
                 MmUnmapLockedPages(chunkVA, deviceContext->mdlArray[i]);
                 IoFreeMdl(deviceContext->mdlArray[i]);
-                DEBUG_PRINT("Unmapped and freed MDL chunk %u at %p", i, chunkVA);
+                DEBUG_INFO("Unmapped and freed MDL chunk %u at %p", i, chunkVA);
             }
             __except (EXCEPTION_EXECUTE_HANDLER)
             {
-                DEBUG_PRINT("Exception unmapping chunk %u", i);
+                DEBUG_ERROR("Exception unmapping chunk %u", i);
             }
 
             deviceContext->mdlArray[i] = NULL;
@@ -271,12 +271,12 @@ VOID IVSHMEMEvtDeviceFileCleanup(_In_ WDFFILEOBJECT FileObject)
                 {
                     MmUnmapLockedPages(pEntry->UserVa, pEntry->pMdl);
                     IoFreeMdl(pEntry->pMdl);
-                    DEBUG_PRINT("Auto-unmapped PRP MDL at VA %p", pEntry->UserVa);
+                    DEBUG_INFO("Auto-unmapped PRP MDL at VA %p", pEntry->UserVa);
                 }
             }
             __except (EXCEPTION_EXECUTE_HANDLER)
             {
-                DEBUG_PRINT("Exception during auto-cleanup of PRP MDL");
+                DEBUG_ERROR("Exception during auto-cleanup of PRP MDL");
             }
 
             RemoveEntryList(curr);
@@ -287,7 +287,7 @@ VOID IVSHMEMEvtDeviceFileCleanup(_In_ WDFFILEOBJECT FileObject)
 
     WdfWaitLockRelease(deviceContext->PrpMapLock);
 
-    DEBUG_PRINT("SHMEM Cleanup complete.");
+    DEBUG_INFO("SHMEM Cleanup complete.");
 }
 
 static NTSTATUS ioctl_request_peerid(const PDEVICE_CONTEXT DeviceContext,
@@ -297,7 +297,7 @@ static NTSTATUS ioctl_request_peerid(const PDEVICE_CONTEXT DeviceContext,
 {
     if (OutputBufferLength != sizeof(IVSHMEM_PEERID))
     {
-        DEBUG_PRINT("IOCTL_IVSHMEM_REQUEST_PEERID: Invalid size, expected %u but got %u",
+        DEBUG_ERROR("IOCTL_IVSHMEM_REQUEST_PEERID: Invalid size, expected %u but got %u",
                     sizeof(IVSHMEM_PEERID),
                     OutputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
@@ -306,7 +306,7 @@ static NTSTATUS ioctl_request_peerid(const PDEVICE_CONTEXT DeviceContext,
     IVSHMEM_PEERID *out = NULL;
     if (!NT_SUCCESS(WdfRequestRetrieveOutputBuffer(Request, OutputBufferLength, (PVOID *)&out, NULL)))
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_REQUEST_PEERID: Failed to retrieve the output buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REQUEST_PEERID: Failed to retrieve the output buffer");
         return STATUS_INVALID_USER_BUFFER;
     }
 
@@ -322,7 +322,7 @@ static NTSTATUS ioctl_request_size(const PDEVICE_CONTEXT DeviceContext,
 {
     if (OutputBufferLength != sizeof(IVSHMEM_SIZE))
     {
-        DEBUG_PRINT("IOCTL_IVSHMEM_REQUEST_SIZE: Invalid size, expected %u but got %u",
+        DEBUG_ERROR("IOCTL_IVSHMEM_REQUEST_SIZE: Invalid size, expected %u but got %u",
                     sizeof(IVSHMEM_SIZE),
                     OutputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
@@ -331,7 +331,7 @@ static NTSTATUS ioctl_request_size(const PDEVICE_CONTEXT DeviceContext,
     IVSHMEM_SIZE *out = NULL;
     if (!NT_SUCCESS(WdfRequestRetrieveOutputBuffer(Request, OutputBufferLength, (PVOID *)&out, NULL)))
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_REQUEST_SIZE: Failed to retrieve the output buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REQUEST_SIZE: Failed to retrieve the output buffer");
         return STATUS_INVALID_USER_BUFFER;
     }
 
@@ -355,7 +355,7 @@ static NTSTATUS ioctl_request_mmap(const PDEVICE_CONTEXT DeviceContext,
 
     if (InputBufferLength != sizeof(IVSHMEM_MMAP_CONFIG))
     {
-        DEBUG_PRINT("IOCTL_IVSHMEM_MMAP: Invalid input size, expected %u but got %u",
+        DEBUG_ERROR("IOCTL_IVSHMEM_MMAP: Invalid input size, expected %u but got %u",
                     sizeof(IVSHMEM_MMAP_CONFIG),
                     InputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
@@ -364,7 +364,7 @@ static NTSTATUS ioctl_request_mmap(const PDEVICE_CONTEXT DeviceContext,
     PIVSHMEM_MMAP_CONFIG in;
     if (!NT_SUCCESS(WdfRequestRetrieveInputBuffer(Request, InputBufferLength, (PVOID)&in, NULL)))
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_MMAP: Failed to retrieve the input buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_MMAP: Failed to retrieve the input buffer");
         return STATUS_INVALID_USER_BUFFER;
     }
 
@@ -381,7 +381,7 @@ static NTSTATUS ioctl_request_mmap(const PDEVICE_CONTEXT DeviceContext,
             cacheType = MmWriteCombined;
             break;
         default:
-            DEBUG_PRINT("IOCTL_IVSHMEM_MMAP: Invalid cache mode: %u", in->cacheMode);
+            DEBUG_ERROR("IOCTL_IVSHMEM_MMAP: Invalid cache mode: %u", in->cacheMode);
             return STATUS_INVALID_PARAMETER;
     }
 
@@ -396,13 +396,13 @@ static NTSTATUS ioctl_request_mmap(const PDEVICE_CONTEXT DeviceContext,
 
     if (OutputBufferLength != bufferLen)
     {
-        DEBUG_PRINT("IOCTL_IVSHMEM_REQUEST_MMAP: Invalid size, expected %u but got %u", bufferLen, OutputBufferLength);
+        DEBUG_ERROR("IOCTL_IVSHMEM_REQUEST_MMAP: Invalid size, expected %u but got %u", bufferLen, OutputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
     }
 
     if (!NT_SUCCESS(WdfRequestRetrieveOutputBuffer(Request, bufferLen, (PVOID *)&buffer, NULL)))
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_REQUEST_MMAP: Failed to retrieve the output buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REQUEST_MMAP: Failed to retrieve the output buffer");
         return STATUS_INVALID_USER_BUFFER;
     }
 
@@ -428,15 +428,15 @@ static NTSTATUS ioctl_request_mmap(const PDEVICE_CONTEXT DeviceContext,
             SIZE_T length = DeviceContext->shmemAddr.NumberOfBytes;
             PVOID base_va = NULL;
             NTSTATUS status;
-            DEBUG_PRINT("IVSHMEM Debug: pa = 0x%lx, length = %lu", pa.QuadPart, (UINT64)length);
+            DEBUG_INFO("IVSHMEM Debug: pa = 0x%lx, length = %lu", pa.QuadPart, (UINT64)length);
 
-            DEBUG_PRINT("IVSHMEM Debug: DeviceContext = %p, BaseVA = %p", DeviceContext, base_va);
+            DEBUG_INFO("IVSHMEM Debug: DeviceContext = %p, BaseVA = %p", DeviceContext, base_va);
             // --- STEP 1: RESERVE ---
             status = ZwAllocateVirtualMemory(ZwCurrentProcess(), &base_va, 0, &length, MEM_RESERVE, PAGE_NOACCESS);
 
             if (!NT_SUCCESS(status))
             {
-                DEBUG_PRINT("ZwAllocateVirtualMemory (Reserve) failed: 0x%08x", status);
+                DEBUG_ERROR("ZwAllocateVirtualMemory (Reserve) failed: 0x%08x", status);
                 return status;
             }
 
@@ -446,7 +446,7 @@ static NTSTATUS ioctl_request_mmap(const PDEVICE_CONTEXT DeviceContext,
 
             if (!NT_SUCCESS(status))
             {
-                DEBUG_PRINT("ZwFreeVirtualMemory failed: 0x%08x", status);
+                DEBUG_ERROR("ZwFreeVirtualMemory failed: 0x%08x", status);
                 return status;
             }
 
@@ -469,7 +469,7 @@ static NTSTATUS ioctl_request_mmap(const PDEVICE_CONTEXT DeviceContext,
                 if (!NT_SUCCESS(status))
                 {
                     // goto ErrorCleanup;
-                    DEBUG_PRINT("Not success!");
+                    DEBUG_ERROR("Not success!");
                     return 0;
                 }
 
@@ -504,12 +504,12 @@ static NTSTATUS ioctl_request_mmap(const PDEVICE_CONTEXT DeviceContext,
 
                 if (mappedChunk != currentTargetVA)
                 {
-                    DEBUG_PRINT("FATAL: Memory discontinuity at chunk %u", i);
+                    DEBUG_ERROR("FATAL: Memory discontinuity at chunk %u", i);
 
                     return STATUS_CONFLICTING_ADDRESSES;
                 }
 
-                DEBUG_PRINT("Successfully mapped chunk %u at %p", i, mappedChunk);
+                DEBUG_INFO("Successfully mapped chunk %u at %p", i, mappedChunk);
 
                 if (i < 32)
                 {
@@ -529,13 +529,13 @@ static NTSTATUS ioctl_request_mmap(const PDEVICE_CONTEXT DeviceContext,
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_REQUEST_MMAP: Exception trying to map pages");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REQUEST_MMAP: Exception trying to map pages");
         return STATUS_DRIVER_INTERNAL_ERROR;
     }
 
     if (!DeviceContext->shmemMap)
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_REQUEST_MMAP: shmemMap is NULL");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REQUEST_MMAP: shmemMap is NULL");
         return STATUS_DRIVER_INTERNAL_ERROR;
     }
 
@@ -568,14 +568,14 @@ static NTSTATUS ioctl_release_mmap(const PDEVICE_CONTEXT DeviceContext, const WD
     // ensure the mapping exists
     if (!DeviceContext->shmemMap)
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_RELEASE_MMAP: not mapped");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_RELEASE_MMAP: not mapped");
         return STATUS_INVALID_DEVICE_REQUEST;
     }
 
     // ensure someone else other then the owner doesn't attempt to release the mapping
     if (DeviceContext->owner != WdfRequestGetFileObject(Request))
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_RELEASE_MMAP: Invalid owner");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_RELEASE_MMAP: Invalid owner");
         return STATUS_INVALID_HANDLE;
     }
 
@@ -591,11 +591,11 @@ static NTSTATUS ioctl_release_mmap(const PDEVICE_CONTEXT DeviceContext, const WD
             {
                 MmUnmapLockedPages(chunkVA, DeviceContext->mdlArray[i]);
                 IoFreeMdl(DeviceContext->mdlArray[i]);
-                DEBUG_PRINT("Unmapped and freed MDL chunk %u at %p", i, chunkVA);
+                DEBUG_INFO("Unmapped and freed MDL chunk %u at %p", i, chunkVA);
             }
             __except (EXCEPTION_EXECUTE_HANDLER)
             {
-                DEBUG_PRINT("Exception unmapping chunk %u", i);
+                DEBUG_ERROR("Exception unmapping chunk %u", i);
             }
 
             DeviceContext->mdlArray[i] = NULL;
@@ -615,13 +615,13 @@ static NTSTATUS ioctl_ring_doorbell(const PDEVICE_CONTEXT DeviceContext,
     // ensure someone else other then the owner doesn't attempt to trigger IRQs
     if (DeviceContext->owner != WdfRequestGetFileObject(Request))
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_RING_DOORBELL: Invalid owner");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_RING_DOORBELL: Invalid owner");
         return STATUS_INVALID_HANDLE;
     }
 
     if (InputBufferLength != sizeof(IVSHMEM_RING))
     {
-        DEBUG_PRINT("IOCTL_IVSHMEM_RING_DOORBELL: Invalid size, expected %u but got %u",
+        DEBUG_ERROR("IOCTL_IVSHMEM_RING_DOORBELL: Invalid size, expected %u but got %u",
                     sizeof(IVSHMEM_RING),
                     InputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
@@ -630,7 +630,7 @@ static NTSTATUS ioctl_ring_doorbell(const PDEVICE_CONTEXT DeviceContext,
     PIVSHMEM_RING in;
     if (!NT_SUCCESS(WdfRequestRetrieveInputBuffer(Request, InputBufferLength, (PVOID)&in, NULL)))
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_RING_DOORBELL: Failed to retrieve the input buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_RING_DOORBELL: Failed to retrieve the input buffer");
         return STATUS_INVALID_USER_BUFFER;
     }
 
@@ -648,13 +648,13 @@ static NTSTATUS ioctl_register_event(const PDEVICE_CONTEXT DeviceContext,
     // ensure someone else other then the owner isn't attempting to register events
     if (DeviceContext->owner != WdfRequestGetFileObject(Request))
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Invalid owner");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Invalid owner");
         return STATUS_INVALID_HANDLE;
     }
 
     if (InputBufferLength != sizeof(IVSHMEM_EVENT))
     {
-        DEBUG_PRINT("IOCTL_IVSHMEM_REGISTER_EVENT: Invalid size, expected %u but got %u",
+        DEBUG_ERROR("IOCTL_IVSHMEM_REGISTER_EVENT: Invalid size, expected %u but got %u",
                     sizeof(PIVSHMEM_EVENT),
                     InputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
@@ -663,14 +663,14 @@ static NTSTATUS ioctl_register_event(const PDEVICE_CONTEXT DeviceContext,
     // early non locked quick check to see if we are out of event space
     if (DeviceContext->eventBufferUsed == MAX_EVENTS)
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Event buffer full");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Event buffer full");
         return STATUS_INSUFFICIENT_RESOURCES;
     }
 
     PIVSHMEM_EVENT in;
     if (!NT_SUCCESS(WdfRequestRetrieveInputBuffer(Request, InputBufferLength, (PVOID)&in, NULL)))
     {
-        DEBUG_PRINT("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Failed to retrieve the input buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Failed to retrieve the input buffer");
         return STATUS_INVALID_USER_BUFFER;
     }
 
@@ -682,7 +682,7 @@ static NTSTATUS ioctl_register_event(const PDEVICE_CONTEXT DeviceContext,
                                               &hObject,
                                               NULL)))
     {
-        DEBUG_PRINT("%s", "Unable to reference user-mode event object");
+        DEBUG_ERROR("%s", "Unable to reference user-mode event object");
         return STATUS_INVALID_HANDLE;
     }
 
@@ -698,7 +698,7 @@ static NTSTATUS ioctl_register_event(const PDEVICE_CONTEXT DeviceContext,
         {
             KeReleaseSpinLock(&DeviceContext->eventListLock, oldIRQL);
 
-            DEBUG_PRINT("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Event buffer full");
+            DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Event buffer full");
             ObDereferenceObject(hObject);
             return STATUS_INSUFFICIENT_RESOURCES;
         }
@@ -727,7 +727,7 @@ static NTSTATUS ioctl_register_event(const PDEVICE_CONTEXT DeviceContext,
         // this should never occur, if it does it indicates memory corruption
         if (!done)
         {
-            DEBUG_PRINT("IOCTL_IVSHMEM_REGISTER_EVENT: deviceContext->eventBufferUsed (%u) < MAX_EVENTS (%u) but no "
+            DEBUG_ERROR("IOCTL_IVSHMEM_REGISTER_EVENT: deviceContext->eventBufferUsed (%u) < MAX_EVENTS (%u) but no "
                         "slots found!",
                         DeviceContext->eventBufferUsed,
                         MAX_EVENTS);
@@ -752,13 +752,13 @@ static NTSTATUS ioctl_map_prp_list(const PDEVICE_CONTEXT DeviceContext,
     PMDL pMdl = NULL;
     PVOID userVa = NULL;
     MM_PHYSICAL_ADDRESS_LIST paList[MAX_PRP_ENTRIES];
-    DEBUG_PRINT("Inside ioctl_map_prp_list!");
+    DEBUG_INFO("Inside ioctl_map_prp_list!");
     *BytesReturned = 0;
     UNREFERENCED_PARAMETER(InputBufferLength);
     UNREFERENCED_PARAMETER(OutputBufferLength);
     size_t InputSize = 0, OutputSize = 0;
     status = WdfRequestRetrieveInputBuffer(Request, sizeof(IVSHMEM_MAP_REQUEST), (PVOID *)&pReq, &InputSize);
-    DEBUG_PRINT("[ioctl_map_prp_list] Input Original = %ld | Retrieved = %ld", sizeof(IVSHMEM_MAP_REQUEST), InputSize);
+    DEBUG_INFO("[ioctl_map_prp_list] Input Original = %ld | Retrieved = %ld", sizeof(IVSHMEM_MAP_REQUEST), InputSize);
     if (!NT_SUCCESS(status))
     {
         return status;
@@ -771,7 +771,7 @@ static NTSTATUS ioctl_map_prp_list(const PDEVICE_CONTEXT DeviceContext,
     const size_t outputLen = sizeof(IVSHMEM_PRP_MAP_RESPONSE);
 #endif
     status = WdfRequestRetrieveOutputBuffer(Request, outputLen, (PVOID *)&pRes, &OutputSize);
-    DEBUG_PRINT("[ioctl_map_prp_list] Output Original = %ld | Retrieved = %ld", outputLen, OutputSize);
+    DEBUG_INFO("[ioctl_map_prp_list] Output Original = %ld | Retrieved = %ld", outputLen, OutputSize);
     if (!NT_SUCCESS(status))
     {
         return status;
@@ -781,13 +781,13 @@ static NTSTATUS ioctl_map_prp_list(const PDEVICE_CONTEXT DeviceContext,
     {
         return STATUS_INVALID_PARAMETER;
     }
-    DEBUG_PRINT("[ioctl_map_prp_list] Page Count = %lld", pReq->PageCount);
+    DEBUG_INFO("[ioctl_map_prp_list] Page Count = %lld", pReq->PageCount);
     for (ULONG i = 0; i < pReq->PageCount; i++)
     {
         // paList[i].PhysicalAddress.QuadPart = pReq->PhysAddrList[i];
         paList[i].PhysicalAddress.QuadPart = DeviceContext->shmemAddr.PhysicalAddress.QuadPart + pReq->PhysAddrList[i];
         paList[i].NumberOfBytes = 4096;
-        DEBUG_PRINT("[ioctl_map_prp_list] Addr = 0x%llx", paList[i].PhysicalAddress.QuadPart);
+        DEBUG_INFO("[ioctl_map_prp_list] Addr = 0x%llx", paList[i].PhysicalAddress.QuadPart);
     }
 
     status = MmAllocateMdlForIoSpace(paList, pReq->PageCount, &pMdl);
@@ -811,7 +811,7 @@ static NTSTATUS ioctl_map_prp_list(const PDEVICE_CONTEXT DeviceContext,
             InsertTailList(&DeviceContext->PrpMapListHead, &pEntry->ListEntry);
             WdfWaitLockRelease(DeviceContext->PrpMapLock);
         }
-        DEBUG_PRINT("[ioctl_map_prp_list] userVa = %p", userVa);
+        DEBUG_INFO("[ioctl_map_prp_list] userVa = %p", userVa);
 
 #ifdef _WIN64
         if (is32Bit)
@@ -848,7 +848,7 @@ static NTSTATUS ioctl_unmap_prp_list(const PDEVICE_CONTEXT DeviceContext,
     NTSTATUS status = STATUS_NOT_FOUND;
     PIVSHMEM_PRP_UNMAP_REQUEST pReq;
     PLIST_ENTRY curr, head;
-    DEBUG_PRINT("Inside ioctl_unmap_prp_list!");
+    DEBUG_INFO("Inside ioctl_unmap_prp_list!");
     *BytesReturned = 0;
     UNREFERENCED_PARAMETER(InputBufferLength);
 #ifdef _WIN64
@@ -860,7 +860,7 @@ static NTSTATUS ioctl_unmap_prp_list(const PDEVICE_CONTEXT DeviceContext,
 #endif
     size_t InputSize = 0;
     status = WdfRequestRetrieveInputBuffer(Request, inputLen, (PVOID *)&pReq, &InputSize);
-    DEBUG_PRINT("[ioctl_unmap_prp_list] Input Original = %ld | Retrieved = %ld", inputLen, InputSize);
+    DEBUG_INFO("[ioctl_unmap_prp_list] Input Original = %ld | Retrieved = %ld", inputLen, InputSize);
     if (!NT_SUCCESS(status))
     {
         return status;
@@ -876,7 +876,7 @@ static NTSTATUS ioctl_unmap_prp_list(const PDEVICE_CONTEXT DeviceContext,
         PPRP_MAP_ENTRY pEntry = CONTAINING_RECORD(curr, PRP_MAP_ENTRY, ListEntry);
         if (pEntry->UserVa == pReq->UserVa)
         {
-            DEBUG_PRINT("[ioctl_unmap_prp_list] Removing UserVA=%p | MdlContext=%p", pEntry->UserVa, pEntry->pMdl);
+            DEBUG_INFO("[ioctl_unmap_prp_list] Removing UserVA=%p | MdlContext=%p", pEntry->UserVa, pEntry->pMdl);
             MmUnmapLockedPages(pEntry->UserVa, pEntry->pMdl);
             IoFreeMdl(pEntry->pMdl);
 
@@ -887,7 +887,7 @@ static NTSTATUS ioctl_unmap_prp_list(const PDEVICE_CONTEXT DeviceContext,
         }
         curr = curr->Flink;
     }
-    DEBUG_PRINT("[ioctl_unmap_prp_list] PRP List unmapped successfully!");
+    DEBUG_INFO("[ioctl_unmap_prp_list] PRP List unmapped successfully!");
     WdfWaitLockRelease(DeviceContext->PrpMapLock);
     return status;
 }

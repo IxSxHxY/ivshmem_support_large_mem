@@ -14,7 +14,7 @@ NTSTATUS IVSHMEMCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit)
     NTSTATUS status;
 
     PAGED_CODE();
-    DEBUG_PRINT("%s", __FUNCTION__);
+    DEBUG_INFO("%s", __FUNCTION__);
 
     WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&deviceAttributes, DEVICE_CONTEXT);
 
@@ -34,7 +34,7 @@ NTSTATUS IVSHMEMCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit)
 
     if (!NT_SUCCESS(status))
     {
-        DEBUG_PRINT("%s", "Call to WdfDeviceCreate failed");
+        DEBUG_ERROR("%s", "Call to WdfDeviceCreate failed");
         return status;
     }
 
@@ -47,14 +47,14 @@ NTSTATUS IVSHMEMCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit)
 
     if (!NT_SUCCESS(status))
     {
-        DEBUG_PRINT("%s", "Call to WdfDeviceCreateDeviceInterface failed");
+        DEBUG_ERROR("%s", "Call to WdfDeviceCreateDeviceInterface failed");
         return status;
     }
 
     status = IVSHMEMQueueInitialize(device);
     if (!NT_SUCCESS(status))
     {
-        DEBUG_PRINT("%s", "IVSHMEMQueueInitialize failed");
+        DEBUG_ERROR("%s", "IVSHMEMQueueInitialize failed");
         return status;
     }
 
@@ -88,7 +88,7 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
                                          _In_ WDFCMRESLIST ResourcesTranslated)
 {
     PAGED_CODE();
-    DEBUG_PRINT("%s", __FUNCTION__);
+    DEBUG_INFO("%s", __FUNCTION__);
     PDEVICE_CONTEXT deviceContext;
     deviceContext = DeviceGetContext(Device);
 
@@ -102,7 +102,7 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
         descriptor = WdfCmResourceListGetDescriptor(ResourcesTranslated, i);
         if (!descriptor)
         {
-            DEBUG_PRINT("%s", "Call to WdfCmResourceListGetDescriptor failed");
+            DEBUG_ERROR("%s", "Call to WdfCmResourceListGetDescriptor failed");
             return STATUS_DEVICE_CONFIGURATION_ERROR;
         }
 
@@ -120,19 +120,18 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
 
         if (!deviceContext->interrupts)
         {
-            DEBUG_PRINT("Failed to allocate space for %d interrupts", deviceContext->interrupts);
+            DEBUG_ERROR("Failed to allocate space for %d interrupts", deviceContext->interrupts);
             return STATUS_INSUFFICIENT_RESOURCES;
         }
     }
 
     for (ULONG i = 0; i < resCount; ++i)
     {
-        DbgPrint("!!!!!!!!!!!!!!!!!!!!!\n");
         PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor;
         descriptor = WdfCmResourceListGetDescriptor(ResourcesTranslated, i);
         if (!descriptor)
         {
-            DEBUG_PRINT("%s", "Call to WdfCmResourceListGetDescriptor failed");
+            DEBUG_ERROR("%s", "Call to WdfCmResourceListGetDescriptor failed");
             return STATUS_DEVICE_CONFIGURATION_ERROR;
         }
 
@@ -143,7 +142,7 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
             {
                 if (descriptor->u.Memory.Length != sizeof(IVSHMEMDeviceRegisters))
                 {
-                    DEBUG_PRINT("Resource size was %u long when %u was expected",
+                    DEBUG_ERROR("Resource size was %u long when %u was expected",
                                 descriptor->u.Memory.Length,
                                 sizeof(IVSHMEMDeviceRegisters));
                     result = STATUS_DEVICE_HARDWARE_ERROR;
@@ -155,7 +154,7 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
 
                 if (!deviceContext->devRegisters)
                 {
-                    DEBUG_PRINT("%s", "Call to MmMapIoSpace failed");
+                    DEBUG_ERROR("%s", "Call to MmMapIoSpace failed");
                     result = STATUS_DEVICE_HARDWARE_ERROR;
                     break;
                 }
@@ -166,7 +165,7 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
                 {
                     deviceContext->shmemAddr.PhysicalAddress = descriptor->u.Memory.Start;
                     deviceContext->shmemAddr.NumberOfBytes = descriptor->u.Memory.Length;
-                    DEBUG_PRINT("memIndex = %d pa = %llx (%llx) size = %lx (%lx)",
+                    DEBUG_INFO("memIndex = %d pa = %llx (%llx) size = %lx (%lx)",
                                 memIndex,
                                 descriptor->u.Memory.Start.QuadPart,
                                 deviceContext->shmemAddr.PhysicalAddress.QuadPart,
@@ -176,11 +175,11 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
                     result = MmAllocateMdlForIoSpace(&deviceContext->shmemAddr, 1, &deviceContext->shmemMDL);
                     if (!NT_SUCCESS(result))
                     {
-                        DEBUG_PRINT("%s", "Call to MmAllocateMdlForIoSpace failed");
+                        DEBUG_ERROR("%s", "Call to MmAllocateMdlForIoSpace failed");
                         break;
                     }
                 }
-            DEBUG_PRINT("memIndex = %d va = %p mdl = %p",
+            DEBUG_INFO("memIndex = %d va = %p mdl = %p",
                         memIndex,
                         deviceContext->shmemAddr.PhysicalAddress,
                         deviceContext->shmemMDL);
@@ -189,7 +188,7 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
         }
         if (descriptor->Type == CmResourceTypeMemoryLarge)
         {
-            DEBUG_PRINT("Found MemoryLarge resource at index %u", i);
+            DEBUG_INFO("Found MemoryLarge resource at index %u", i);
             PHYSICAL_ADDRESS physAddr;
             SIZE_T length;
             if (descriptor->Flags & CM_RESOURCE_MEMORY_LARGE_40)
@@ -198,7 +197,7 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
                 physAddr.QuadPart = ((ULONGLONG)descriptor->u.Memory40.Start.QuadPart);
                 length = ((SIZE_T)descriptor->u.Memory40.Length40) << 8;
 
-                DEBUG_PRINT("40-bit: PA=%llx, Length=%llx", physAddr.QuadPart, length);
+                DEBUG_INFO("40-bit: PA=%llx, Length=%llx", physAddr.QuadPart, length);
             }
             else if (descriptor->Flags & CM_RESOURCE_MEMORY_LARGE_48)
             {
@@ -206,7 +205,7 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
                 physAddr.QuadPart = ((ULONGLONG)descriptor->u.Memory48.Start.QuadPart);
                 length = ((SIZE_T)descriptor->u.Memory48.Length48) << 16;
 
-                DEBUG_PRINT("48-bit: PA=%llx, Length=%llx", physAddr.QuadPart, length);
+                DEBUG_INFO("48-bit: PA=%llx, Length=%llx", physAddr.QuadPart, length);
             }
             else if (descriptor->Flags & CM_RESOURCE_MEMORY_LARGE_64)
             {
@@ -214,11 +213,11 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
                 physAddr.QuadPart = descriptor->u.Memory64.Start.QuadPart;
                 length = ((SIZE_T)descriptor->u.Memory64.Length64) << 32;
 
-                DEBUG_PRINT("64-bit: PA=%llx, Length=%llx", physAddr.QuadPart, length);
+                DEBUG_INFO("64-bit: PA=%llx, Length=%llx", physAddr.QuadPart, length);
             }
             else
             {
-                DEBUG_PRINT("Unknown MemoryLarge flags: 0x%x", descriptor->Flags);
+                DEBUG_ERROR("Unknown MemoryLarge flags: 0x%x", descriptor->Flags);
                 result = STATUS_DEVICE_CONFIGURATION_ERROR;
                 break;
             }
@@ -235,11 +234,11 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
             //                                            PAGE_NOACCESS);
             // if (!NT_SUCCESS(status))
             // {
-            //     DEBUG_PRINT("Call to NtAllocateVirtualMemory failed: %08x", status);
+            //     DEBUG_ERROR("Call to NtAllocateVirtualMemory failed: %08x", status);
             //     result = status;
             //     break;
             // }
-            // DEBUG_PRINT("base_va = %p", base_va);
+            // DEBUG_ERROR("base_va = %p", base_va);
         }
 
         if (descriptor->Type == CmResourceTypeInterrupt && (descriptor->Flags & CM_RESOURCE_INTERRUPT_MESSAGE))
@@ -255,14 +254,14 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
 
             if (!NT_SUCCESS(status))
             {
-                DEBUG_PRINT("Call to WdfInterruptCreate failed: %08x", status);
+                DEBUG_ERROR("Call to WdfInterruptCreate failed: %08x", status);
                 result = status;
                 break;
             }
 
             if (++deviceContext->interruptsUsed == 65)
             {
-                DEBUG_PRINT("%s", "This driver does not support > 64 interrupts, they will be ignored in the ISR.");
+                DEBUG_INFO("%s", "This driver does not support > 64 interrupts, they will be ignored in the ISR.");
             }
 
             continue;
@@ -285,25 +284,25 @@ NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device,
     {
         if (!deviceContext->shmemMDL)
         {
-            DEBUG_PRINT("%s", "shmemMDL == NULL");
+            DEBUG_ERROR("%s", "shmemMDL == NULL");
             // result = STATUS_DEVICE_HARDWARE_ERROR;
         }
         else
         {
-            DEBUG_PRINT("Shared Memory: %llx, %lx bytes",
+            DEBUG_INFO("Shared Memory: %llx, %lx bytes",
                         deviceContext->shmemAddr.PhysicalAddress.QuadPart,
                         deviceContext->shmemAddr.NumberOfBytes);
-            DEBUG_PRINT("Interrupts   : %d", deviceContext->interruptsUsed);
+            DEBUG_INFO("Interrupts   : %d", deviceContext->interruptsUsed);
         }
     }
-    DEBUG_PRINT("%s result 0x%x", __FUNCTION__, result);
+    DEBUG_INFO("%s result 0x%x", __FUNCTION__, result);
     return result;
 }
 
 NTSTATUS IVSHMEMEvtDeviceReleaseHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIST ResourcesTranslated)
 {
     UNREFERENCED_PARAMETER(ResourcesTranslated);
-    DEBUG_PRINT("%s", __FUNCTION__);
+    DEBUG_INFO("%s", __FUNCTION__);
 
     PDEVICE_CONTEXT deviceContext;
     deviceContext = DeviceGetContext(Device);
@@ -327,11 +326,11 @@ NTSTATUS IVSHMEMEvtDeviceReleaseHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIS
                 {
                     MmUnmapLockedPages(chunkVA, deviceContext->mdlArray[i]);
                     IoFreeMdl(deviceContext->mdlArray[i]);
-                    DEBUG_PRINT("Unmapped and freed MDL chunk %u at %p", i, chunkVA);
+                    DEBUG_INFO("Unmapped and freed MDL chunk %u at %p", i, chunkVA);
                 }
                 __except (EXCEPTION_EXECUTE_HANDLER)
                 {
-                    DEBUG_PRINT("Exception unmapping chunk %u", i);
+                    DEBUG_ERROR("Exception unmapping chunk %u", i);
                 }
 
                 deviceContext->mdlArray[i] = NULL;
@@ -385,7 +384,7 @@ NTSTATUS IVSHMEMEvtD0Entry(_In_ WDFDEVICE Device, _In_ WDF_POWER_DEVICE_STATE Pr
 {
     UNREFERENCED_PARAMETER(Device);
     UNREFERENCED_PARAMETER(PreviousState);
-    DEBUG_PRINT("%s", __FUNCTION__);
+    DEBUG_INFO("%s", __FUNCTION__);
     return STATUS_SUCCESS;
 }
 
@@ -394,7 +393,7 @@ NTSTATUS IVSHMEMEvtD0Exit(_In_ WDFDEVICE Device, _In_ WDF_POWER_DEVICE_STATE Pre
     UNREFERENCED_PARAMETER(Device);
     UNREFERENCED_PARAMETER(PreviousState);
     PAGED_CODE();
-    DEBUG_PRINT("%s", __FUNCTION__);
+    DEBUG_INFO("%s", __FUNCTION__);
     return STATUS_SUCCESS;
 }
 
